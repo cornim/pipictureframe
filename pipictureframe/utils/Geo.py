@@ -1,11 +1,10 @@
-import os
 import locale
-from PictureFrame2021pic import Picture
-from PictureFrame2021config import Config
-from geopy.geocoders import Nominatim  ## NB other geo services will need different code
+from pipictureframe.utils.Config import Config
+from geopy.geocoders import Nominatim  # NB other geo services will need different code
 
+from pipictureframe.utils.PictureReader import PictureFile
 
-
+"""
 gps_data = {}
 if os.path.isfile(config.GEO_PATH):
     with open(config.GEO_PATH) as gps_file:
@@ -14,31 +13,40 @@ if os.path.isfile(config.GEO_PATH):
                 continue
             (name, var) = line.partition('=')[::2]
             gps_data[name] = var.rstrip('\n')
+"""
 
 
-def get_location(pic: Picture, config: Config):
+def get_location(pic: PictureFile, config: Config):
     lat = pic.exif_data.lat
-    latRef = pic.exif_data.lat_ref
-    lon = pic.exif_data.lon
-    lonRef = pic.exif_data.lon_ref
-    decimal_lat = ((lat[0][0] / lat[0][1])
-                   + (lat[1][0] / lat[1][1] / 60)
-                   + (lat[2][0] / lat[2][1] / 3600))
-    decimal_lon = ((lon[0][0] / lon[0][1])
-                   + (lon[1][0] / lon[1][1] / 60)
-                   + (lon[2][0] / lon[2][1] / 3600))
-    if latRef == 'S':
+    lat_ref = pic.exif_data.lat_ref
+    long = pic.exif_data.lon
+    long_ref = pic.exif_data.lon_ref
+    decimal_lat = (
+        (lat[0][0] / lat[0][1])
+        + (lat[1][0] / lat[1][1] / 60)
+        + (lat[2][0] / lat[2][1] / 3600)
+    )
+    decimal_lon = (
+        (long[0][0] / long[0][1])
+        + (long[1][0] / long[1][1] / 60)
+        + (long[2][0] / long[2][1] / 3600)
+    )
+    if lat_ref == "S":
         decimal_lat = -decimal_lat
-    if lonRef == 'W':
+    if long_ref == "W":
         decimal_lon = -decimal_lon
     geo_key = "{:.4f},{:.4f}".format(decimal_lat, decimal_lon)
+
+    gps_data = pic.exif_data.gps_data
 
     if geo_key not in gps_data:
         language = locale.getlocale()[0][:2]
         try:
             # """
             geolocator = Nominatim(user_agent=config.geo_key)
-            location = geolocator.reverse(geo_key, language=language, zoom=config.geo_zoom).address.split(",")
+            location = geolocator.reverse(
+                geo_key, language=language, zoom=config.geo_zoom
+            ).address.split(",")
             location_split = [loc.strip() for loc in location]
             formatted_address = ""
             comma = ""
@@ -51,8 +59,10 @@ def get_location(pic: Picture, config: Config):
       # above from `geolocator = ..`, also your config.GEO_KEY should be your email address
       import json
       import urllib.request
-      URL = "https://nominatim.openstreetmap.org/reverse?format=geojson&lat={}&lon={}&zoom={}&email={}&accept-language={}"
-      with urllib.request.urlopen(URL.format(decimal_lat, decimal_lon, config.GEO_ZOOM, config.GEO_KEY, language)) as req:
+      URL =
+       "https://nominatim.openstreetmap.org/reverse?format=geojson&lat={}&long={}&zoom={}&email={}&accept-language={}"
+      with urllib.request.urlopen(
+        URL.format(decimal_lat, decimal_lon, config.GEO_ZOOM, config.GEO_KEY, language)) as req:
           data = json.loads(req.read().decode())
       adr = data['features'][0]['properties']['address']
       # change the line below to include the details you want. See nominatim.org/release-docs/develop/api/Reverse/
@@ -67,7 +77,7 @@ def get_location(pic: Picture, config: Config):
       """
             if len(formatted_address) > 0:
                 gps_data[geo_key] = formatted_address
-                with open(config.GEO_PATH, 'a+') as file:
+                with open(config.geo_path, "a+") as file:
                     file.write("{}={}\n".format(geo_key, formatted_address))
                 return formatted_address
         except Exception as e:
