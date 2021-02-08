@@ -1,0 +1,3 @@
+*.dll
+venv/
+.idea/
