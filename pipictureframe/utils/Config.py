@@ -170,7 +170,7 @@ def setup_parser():
     pfo.add_argument(
         "--shuffle_weight",
         default=0,
-        type=int,
+        type=float,
         help="Determines the weight with which the number of times a picture has already been shown,"
         " influces the probablity for it to be picked in the future."
         " 0 Means no influce, 1 means about 50 percent influence and 100 means complete influence.",
@@ -248,11 +248,12 @@ def convert_to_absolute_path(rel_path):
         return os.path.abspath(rel_path)
     else:
         new_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "..", rel_path
+            os.path.dirname(os.path.abspath(__file__)), "../..", rel_path
         )
         if os.path.isfile(new_path):
             return new_path
-    log.error(f"{rel_path} is not a file.")
+        else:
+            log.error(f"Neither {rel_path} nor {new_path} could be found.")
     return None
 
 

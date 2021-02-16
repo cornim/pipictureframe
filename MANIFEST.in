@@ -1,0 +1,2 @@
+include pipictureframe/shaders/blend_new.*
+include pipictureframe/fonts/NotoSans-Regular.ttf

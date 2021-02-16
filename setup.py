@@ -5,8 +5,9 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pipictureframe",
-    version="0.9.0",
+    version="0.9.6",
     packages=setuptools.find_packages(),
+    include_package_data=True,
     url="https://github.com/cornim/pipictureframe",
     license="GPLv3",
     author="Dr. Cornelius Mund",
