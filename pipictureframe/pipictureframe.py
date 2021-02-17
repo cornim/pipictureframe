@@ -64,12 +64,15 @@ class LoopControlVars:
         return str(self.__dict__)
 
 
-def main():
-    parser = setup_parser()
-    args = parser.parse_args()
-    config = Config(args)
+class DebugFileFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord):
+        if record.levelno <= logging.DEBUG:
+            if "PIL" in record.name or "pi3d" in record.name:
+                return False
+        return True
 
-    # Configure logging
+
+def configure_logging(config):
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
@@ -87,13 +90,21 @@ def main():
             )
             dfh.setLevel(logging.DEBUG)
             dfh.setFormatter(formatter)
+            dfh.addFilter(DebugFileFilter())
             log.addHandler(dfh)
         except Exception as e:
             log.error(
                 f"Could not open debug log file {config.debug_log_file}.", exc_info=e
             )
-
     log.debug(f"Starting application with following config:\n{config}")
+
+
+def main():
+    parser = setup_parser()
+    args = parser.parse_args()
+    config = Config(args)
+
+    configure_logging(config)
 
     db = Database(config.db_connection_str)
 

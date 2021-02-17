@@ -5,14 +5,14 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pipictureframe",
-    version="0.9.6",
+    version="0.9.7",
     packages=setuptools.find_packages(),
     include_package_data=True,
     url="https://github.com/cornim/pipictureframe",
     license="GPLv3",
     author="Dr. Cornelius Mund",
     author_email="",
-    description="A program to use a raspberry pi and a monitor as a digital picture frame.",
+    description="A program to use a raspberry pi with a monitor as a digital picture frame.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     scripts=["pi-picture-frame"],

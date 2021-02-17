@@ -16,67 +16,88 @@ log = logging.getLogger(__name__)
 
 
 def update_pictures_in_db(pic_dir: str, connections_str: str):
-    pic_file_gen = read_pictures_from_disk(pic_dir)
-    db = Database(connections_str)
+    try:
+        log.info(f"Starting update of db {connections_str} from directory {pic_dir}")
+        pic_file_gen = read_pictures_from_disk(pic_dir)
+        # Separate db instance created here since this runs a separate process
+        db = Database(connections_str)
 
-    session = db.get_session()
-    db_changed = _clean_db(session)
-    db_changed = _add_and_update_pics(pic_file_gen, session) or db_changed
-    if db_changed:
-        update_obj = Metadata(
-            LAST_DB_UPDATE_KEY_STR, datetime.now().strftime(LAST_DB_UPDATE_FMT_STR)
-        )
-        session.merge(update_obj)
-        session.commit()
-    session.close()
+        session = db.get_session()
+        db_changed = _clean_db(session)
+        db_changed = _add_and_update_pics(pic_file_gen, session) or db_changed
+        if db_changed:
+            update_obj = Metadata(
+                LAST_DB_UPDATE_KEY_STR, datetime.now().strftime(LAST_DB_UPDATE_FMT_STR)
+            )
+            session.merge(update_obj)
+            session.commit()
+        session.close()
+    except Exception as e:
+        log.fatal("Unexpected exception in picture update process.", exc_info=e)
 
 
 def _clean_db(session) -> bool:
-    db_changed = False
     all_pics = session.query(PictureData).all()
-    for pic in all_pics:
+    num_deleted = 0
+    for count, pic in enumerate(all_pics, 1):
         if not os.path.exists(pic.absolute_path):
             session.delete(pic)
             session.commit()
-            db_changed = True
-    return db_changed
+            num_deleted += 1
+        if count % 1000 == 0:
+            log.debug(f"Checked {count} db entries for missing hdd files.")
+    log.info(f"Deleted {num_deleted} entries from db.")
+    return num_deleted > 0
 
 
 def _add_and_update_pics(pic_file_gen, session) -> bool:
-    db_changed = False
-    for pic_file in pic_file_gen:
-        pic_by_path = _get_pic_by_path(session, pic_file)
-        # Is present
-        if pic_by_path:
-            # Has been modified
-            if pic_by_path.mtime < pic_file.mtime:
-                log.debug(f"Updated timestamp detected for {pic_file.path}")
+    num_changed = 0
+    for count, pic_file in enumerate(pic_file_gen, 1):
+        try:
+            pic_by_path = _get_pic_by_path(session, pic_file)
+            # Is present
+            if pic_by_path:
+                # Has been modified
+                if pic_by_path.mtime < pic_file.mtime:
+                    log.debug(f"Updated timestamp detected for {pic_file.path}")
+                    pic_data = PictureData.from_picture_file(pic_file)
+                    pic_by_hash = _get_pic_by_hash(session, pic_data.hash_id)
+                    # If modified but hash has not changed
+                    if pic_by_hash:
+                        log.debug(
+                            f"Metadata but not hash has changed for {pic_file.path}"
+                        )
+                        session.merge(pic_data)
+                    # If hash has changed
+                    else:
+                        log.debug(f"Hash has changed for {pic_file.path}")
+                        session.delete(pic_by_path)
+                        session.add(pic_data)
+                else:
+                    log.debug(f"File {pic_file.path} present in db and unchanged.")
+                    continue
+            # If not present
+            else:
                 pic_data = PictureData.from_picture_file(pic_file)
                 pic_by_hash = _get_pic_by_hash(session, pic_data.hash_id)
-                # If modified but hash has not changed
                 if pic_by_hash:
-                    log.debug(f"Metadata but not hash has changed for {pic_file.path}")
+                    log.debug(
+                        f"Picture has moved from {pic_by_hash.absolute_path} to {pic_data.absolute_path}"
+                    )
                     session.merge(pic_data)
-                # If hash has changed
                 else:
-                    log.debug(f"Hash has changed for {pic_file.path}")
-                    session.delete(pic_by_path)
+                    log.debug(f"Picture {pic_file.path} will be added to the database.")
                     session.add(pic_data)
-        # If not present
-        else:
-            pic_data = PictureData.from_picture_file(pic_file)
-            pic_by_hash = _get_pic_by_hash(session, pic_data.hash_id)
-            if pic_by_hash:
-                log.debug(
-                    f"Picture has moved from {pic_by_hash.absolute_path} to {pic_data.absolute_path}"
-                )
-                session.merge(pic_data)
-            else:
-                log.debug(f"Picture {pic_file.path} will be added to the database.")
-                session.add(pic_data)
-        session.commit()
-        db_changed = True
-    return db_changed
+            session.commit()
+            num_changed += 1
+            if count % 1000 == 0:
+                log.debug(f"Checked {count} files for necessary db updates.")
+        except Exception as e:
+            log.error(
+                f"Exception while trying to update db with {pic_file}.", exc_info=e
+            )
+            session.rollback()
+    return num_changed > 0
 
 
 def _get_pic_by_path(session: Session, pic_file: PictureFile) -> PictureData:
