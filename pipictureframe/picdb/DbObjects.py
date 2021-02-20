@@ -8,7 +8,7 @@ class PictureData:
         self,
         hash_id: str,
         abs_path: str,
-        mtime: int,
+        mtime: float,
         orig_datetime: datetime,
         orientation: int,
         rating: int,

@@ -76,4 +76,4 @@ pages:
     paths:
       - public
   only:
-    - master
+    - never

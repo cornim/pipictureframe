@@ -23,9 +23,11 @@ def update_pictures_in_db(pic_dir: str, connections_str: str):
         db = Database(connections_str)
 
         session = db.get_session()
-        db_changed = _clean_db(session)
-        db_changed = _add_and_update_pics(pic_file_gen, session) or db_changed
+        # Update needs to be executed before clean to catch moved pictures
+        db_changed = _add_and_update_pics(pic_file_gen, session)
+        db_changed = _clean_db(session) or db_changed
         if db_changed:
+            log.debug("Changes to db detected. Updated last_db_update in db.")
             update_obj = Metadata(
                 LAST_DB_UPDATE_KEY_STR, datetime.now().strftime(LAST_DB_UPDATE_FMT_STR)
             )
@@ -39,20 +41,23 @@ def update_pictures_in_db(pic_dir: str, connections_str: str):
 def _clean_db(session) -> bool:
     all_pics = session.query(PictureData).all()
     num_deleted = 0
-    for count, pic in enumerate(all_pics, 1):
+    for pic in all_pics:
         if not os.path.exists(pic.absolute_path):
             session.delete(pic)
             session.commit()
             num_deleted += 1
-        if count % 1000 == 0:
-            log.debug(f"Checked {count} db entries for missing hdd files.")
-    log.info(f"Deleted {num_deleted} entries from db.")
+            log.debug(f"Deleted {pic.absolute_path} from db.")
+    log.info(
+        f"Checked {len(all_pics)} pictures and deleted {num_deleted} entries from db."
+    )
     return num_deleted > 0
 
 
 def _add_and_update_pics(pic_file_gen, session) -> bool:
     num_changed = 0
-    for count, pic_file in enumerate(pic_file_gen, 1):
+    num_checked = 0
+    for pic_file in pic_file_gen:
+        num_checked += 1
         try:
             pic_by_path = _get_pic_by_path(session, pic_file)
             # Is present
@@ -90,13 +95,14 @@ def _add_and_update_pics(pic_file_gen, session) -> bool:
                     session.add(pic_data)
             session.commit()
             num_changed += 1
-            if count % 1000 == 0:
-                log.debug(f"Checked {count} files for necessary db updates.")
         except Exception as e:
             log.error(
-                f"Exception while trying to update db with {pic_file}.", exc_info=e
+                f"Exception while trying to update db with {pic_file.path}.", exc_info=e
             )
             session.rollback()
+    log.info(
+        f"Checked {num_checked} files and {num_changed} pics added or updated to/in db."
+    )
     return num_changed > 0
 
 

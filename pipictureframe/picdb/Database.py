@@ -19,11 +19,11 @@ LAST_DB_UPDATE_FMT_STR = "%Y-%m-%d %H:%M:%S"
 
 
 class Database:
-    def __init__(self, connection_string: str, echo=False):
+    def __init__(self, connection_string: str, echo=False, expire_on_commit=True):
         self.engine = sqlalchemy.create_engine(connection_string, echo=echo)
         self.connection = self.engine.connect()
         self.alchemy_metadata = sqlalchemy.MetaData(bind=self.engine)
-        self.sm = sessionmaker()
+        self.sm = sessionmaker(expire_on_commit=expire_on_commit)
         self._initialize_db_picture_mapping()
         self._initizalize_metadata_table()
         self.alchemy_metadata.create_all()
@@ -95,5 +95,7 @@ class Database:
         return self.sm()
 
     def close(self):
-        self.sm.close_all()
+        sqlalchemy.orm.session.close_all_sessions()
         self.connection.close()
+        self.engine.dispose()
+        sqlalchemy.orm.clear_mappers()

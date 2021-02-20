@@ -5,6 +5,7 @@ from hashlib import md5
 from pathlib import Path
 
 from PIL import ExifTags, Image
+from dateutil import parser
 
 log = logging.getLogger(__name__)
 
@@ -83,7 +84,10 @@ class ExifData:
     def _get_date_time(self, path: str):
         exif_dt = self._get_from_exif(EXIF_DATE_TIME_ORIG)
         if exif_dt:
-            return datetime.strptime(exif_dt, "%Y:%m:%d %H:%M:%S")
+            try:
+                return datetime.strptime(exif_dt, "%Y:%m:%d %H:%M:%S")
+            except ValueError:
+                return parser.parse(exif_dt)
         else:
             return None
 
@@ -114,7 +118,7 @@ def lazy_property(fn):
 class PictureFile:
     def __init__(self, path):
         self.path = path
-        self.mtime = os.path.getmtime(path)
+        self.mtime: float = os.path.getmtime(path)
 
     @lazy_property
     def exif_data(self) -> ExifData:

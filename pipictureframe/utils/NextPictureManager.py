@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 import time
 from datetime import datetime
@@ -36,17 +37,20 @@ class NextPictureManager:
         self.sample_list = None
         self.reload_pictures()
 
-    def reload_pictures(self):
-        self.cur_pic_num = 0
-        self.sample_list = self._load_pictures()
-
     def get_next_picture(self):
         if self.cur_pic_num >= len(self.sample_list):
             self.reload_pictures()
-        cur_pic = self.sample_list[self.cur_pic_num]
-        self._inc_times_shown(cur_pic)
+        cur_pic: PictureData = self.sample_list[self.cur_pic_num]
         self.cur_pic_num += 1
-        return cur_pic
+        if os.path.exists(cur_pic.absolute_path):
+            self._inc_times_shown(cur_pic)
+            log.debug(
+                f"{cur_pic.absolute_path} chosen to be shown as next picture. "
+                f"Current picture number is {self.cur_pic_num}."
+            )
+            return cur_pic
+        else:
+            return self.get_next_picture()
 
     def _inc_times_shown(self, cur_pic):
         session = self.db.get_session()
@@ -55,7 +59,7 @@ class NextPictureManager:
         session.commit()
         session.close()
 
-    def _load_pictures(self) -> List[PictureData]:
+    def reload_pictures(self):
         full_picture_list = self._load_pictures_from_db()
         if full_picture_list is None:
             log.debug("No update in db detected. Keeping current picture list.")
@@ -65,16 +69,17 @@ class NextPictureManager:
                 time.sleep(
                     10
                 )  # Give the bg process some time to load pictures into the database
-                full_picture_list = self._load_pictures()
+                self.reload_pictures()
             else:
                 log.fatal("No pictures found to display in database.")
                 exit(1)
 
-        sample_list = full_picture_list
+        self.sample_list = full_picture_list
+        self.cur_pic_num = 0
         if not self.config.shuffle:
-            sample_list.sort(key=lambda x: x.get_date_time())
+            self.sample_list.sort(key=lambda x: x.get_date_time())
         elif self.config.shuffle_weight == 0:
-            random.shuffle(sample_list)
+            random.shuffle(self.sample_list)
         else:
             nums_shown = [pic.times_shown for pic in full_picture_list]
             max_num_shown = max(nums_shown)
@@ -85,10 +90,16 @@ class NextPictureManager:
                 + 1
                 for x in nums_shown
             ]
-            sample_list = random.choices(
+            log.debug(
+                f"The first 100 weights out of {len(weights)} are {weights[:100]}."
+            )
+            self.sample_list = random.choices(
                 full_picture_list, weights=weights, k=len(full_picture_list)
             )
-        return sample_list
+            log.debug(
+                f"The first 100 pictures out of {len(self.sample_list)} are "
+                f"{[x.absolute_path for x in self.sample_list[:100]]}."
+            )
 
     def _load_pictures_from_db(self) -> Optional[List[PictureData]]:
         session = self.db.get_session()
@@ -99,15 +110,20 @@ class NextPictureManager:
             .value,
             LAST_DB_UPDATE_FMT_STR,
         )
+        log.debug(
+            f"Last update in NextPicture manager = {self.last_db_update} and "
+            f"last update of db = {last_db_update}"
+        )
         if self.last_db_update < last_db_update:
             q = session.query(PictureData)
             if FILTER_RATING_BELOW in self.filters:
-                q.filter(PictureData.rating < self.filters[FILTER_RATING_BELOW])
+                q = q.filter(PictureData.rating >= self.filters[FILTER_RATING_BELOW])
             if FILTER_RATING_ABOVE in self.filters:
-                q.filter(PictureData.rating > self.filters[FILTER_RATING_ABOVE])
+                q = q.filter(PictureData.rating <= self.filters[FILTER_RATING_ABOVE])
             full_picture_list = q.all()
             log.info(f"{len(full_picture_list)} pictures loaded.")
             session.close()
+            self.last_db_update = last_db_update
             return full_picture_list
         else:
             return None
