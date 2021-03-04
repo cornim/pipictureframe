@@ -1,7 +1,7 @@
 import locale
-from pipictureframe.utils.Config import Config
 from geopy.geocoders import Nominatim  # NB other geo services will need different code
 
+from pipictureframe.utils.Config import Config
 from pipictureframe.utils.PictureReader import PictureFile
 
 """

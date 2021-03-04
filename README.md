@@ -10,7 +10,6 @@ The actual OpenGL code is from [pi3d_demos](https://github.com/pi3d/pi3d_demos).
 ## Installation
 
 ```bash
-sudo apt-get install libatlas-base-dev  # Need for numpy
 sudo pip3 install pipictureframe
 ```
 
@@ -20,13 +19,15 @@ Run
 
 `pi-picture-frame -h`
 
-to getp a comprehensive list of options.
+to get a comprehensive list of options.
  
  ## Features
  
  - Smooth and configurable transitions from picture to 
  picture incl. pre-loading of next picture to avoid
  artifacts during transition
+ - Probaility of picture selection based on the number of times
+ it has been shown in the past
  - Background blurring
  - Image resizing
  - Configurable display of text (e.g. date, file name, etc.)

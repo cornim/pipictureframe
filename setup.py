@@ -5,8 +5,9 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pipictureframe",
-    version="0.10.11",
-    packages=setuptools.find_packages(),
+    version="0.11.0",
+    package_dir={"": "src"},
+    packages=setuptools.find_packages("src"),
     include_package_data=True,
     url="https://github.com/cornim/pipictureframe",
     license="GPLv3",
@@ -15,7 +16,7 @@ setuptools.setup(
     description="A program to use a raspberry pi with a monitor as a digital picture frame.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    scripts=["pi-picture-frame"],
+    scripts=["src/pi-picture-frame"],
     install_requires=[
         "pi3d>=2.41",
         "numpy>=1.19.5",
@@ -24,6 +25,7 @@ setuptools.setup(
         "sqlalchemy>=1.3.23",
         "python-dateutil>=2.8.1",
     ],
+    python_requires=">=3.6",
     classifiers=[
         "Development Status :: 4 - Beta",
         "Programming Language :: Python :: 3 :: Only",

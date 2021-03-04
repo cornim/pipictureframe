@@ -9,15 +9,16 @@ USING exif info to rotate images
 
 import logging
 import multiprocessing as mp
-import os
 import time
-from logging.handlers import RotatingFileHandler
+from datetime import datetime, timedelta
 
 from pipictureframe.pi3dfuncs import Pi3dFuncs
-from pipictureframe.picdb.Database import Database
-from pipictureframe.picdb.PictureUpdater import update_pictures_in_db, PictureData
-from pipictureframe.utils.Config import setup_parser, Config
+from pipictureframe.picdb import get_db
+from pipictureframe.picdb.DbObjects import PictureData
+from pipictureframe.picdb.PictureUpdater import update_pictures_in_db
+from pipictureframe.utils.Config import Config, setup_parser
 from pipictureframe.utils.NextPictureManager import NextPictureManager
+
 
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
@@ -38,17 +39,6 @@ def load_next_slide(pi3dfuncs: Pi3dFuncs, cur_pic: PictureData, config):
     pi3dfuncs.set_textures()
 
 
-def check_for_changes(last_file_change, pic_dir):
-    update = False
-    for root, _, _ in os.walk(pic_dir):
-        mod_tm = os.stat(root).st_mtime
-        if mod_tm > last_file_change:
-            last_file_change = mod_tm
-            update = True
-    log.debug(f"Checked for updates to picture folder. Result = {update}")
-    return update
-
-
 class LoopControlVars:
     def __init__(self, config):
         self.cur_time = time.time()
@@ -64,7 +54,7 @@ class LoopControlVars:
         return str(self.__dict__)
 
 
-class DebugFileFilter(logging.Filter):
+class DebugFilter(logging.Filter):
     def filter(self, record: logging.LogRecord):
         if record.levelno <= logging.DEBUG:
             if "PIL" in record.name or "pi3d" in record.name:
@@ -78,24 +68,9 @@ def configure_logging(config):
     )
     ch = logging.StreamHandler()
     ch.setLevel(config.log_level)
+    ch.addFilter(DebugFilter())
     ch.setFormatter(formatter)
     log.addHandler(ch)
-    if config.debug_log_file:
-        try:
-            dfh = RotatingFileHandler(
-                config.debug_log_file,
-                maxBytes=10 * 1024 * 1024,
-                backupCount=5,
-                encoding="utf-8",
-            )
-            dfh.setLevel(logging.DEBUG)
-            dfh.setFormatter(formatter)
-            dfh.addFilter(DebugFileFilter())
-            log.addHandler(dfh)
-        except Exception as e:
-            log.error(
-                f"Could not open debug log file {config.debug_log_file}.", exc_info=e
-            )
     log.debug(f"Starting application with following config:\n{config}")
 
 
@@ -106,7 +81,7 @@ def main():
 
     configure_logging(config)
 
-    db = Database(config.db_connection_str)
+    db = get_db(config.db_connection_str)
 
     pic_loading_proc = start_pic_loading_process(config)
 
@@ -127,8 +102,14 @@ def main():
     pi3dfuncs.set_textures()
     pi3dfuncs.prepare_text(cur_pic, config)
 
+    end_time = (
+        datetime.now() + timedelta(seconds=config.total_runtime)
+        if config.total_runtime > 0
+        else datetime(9999, 1, 1)
+    )
+
     # TODO implement pause functionality
-    while pi3dfuncs.display_loop_running():
+    while pi3dfuncs.display_loop_running() and datetime.now() < end_time:
         lcv.cur_time = time.time()
         if lcv.cur_time > lcv.next_pic_time and not lcv.transition_running:
             log.debug(f"Starting transition.\n{lcv}")

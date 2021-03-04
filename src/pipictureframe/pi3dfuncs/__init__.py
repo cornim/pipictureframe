@@ -6,7 +6,7 @@ import os
 import numpy as np
 from PIL import Image, ImageFilter
 
-from pipictureframe.picdb.PictureUpdater import PictureData
+from pipictureframe.picdb.DbObjects import PictureData
 
 log = logging.getLogger(__name__)
 

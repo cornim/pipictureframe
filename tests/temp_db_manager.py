@@ -7,10 +7,10 @@ from pipictureframe.picdb.Database import (
     LAST_DB_UPDATE_FMT_STR,
 )
 from pipictureframe.picdb.DbObjects import PictureData, Metadata
-from tests.pictures import PictureGenerator
+from tests.pictures import get_virtual_pic
 
 
-class DbManager:
+class TempDbManager:
     def __init__(self):
         self.db = Database("sqlite:///:memory:", expire_on_commit=False)
 
@@ -22,10 +22,9 @@ class DbManager:
         session.close()
 
     def load_n_random_pictures(self, n: int):
-        pg = PictureGenerator()
         pics = []
         for i in range(n):
-            pics.append(pg.get_default_pic())
+            pics.append(get_virtual_pic())
         self.load_db(pics)
         return pics
 

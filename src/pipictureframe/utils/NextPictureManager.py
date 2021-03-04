@@ -6,13 +6,8 @@ from datetime import datetime
 from typing import List, Optional
 from multiprocessing import Process
 
-from pipictureframe.picdb.Database import (
-    Database,
-    LAST_DB_UPDATE_KEY_STR,
-    LAST_DB_UPDATE_FMT_STR,
-)
-from pipictureframe.picdb.DbObjects import Metadata
-from pipictureframe.picdb.PictureUpdater import PictureData
+from pipictureframe.picdb.Database import Database
+from pipictureframe.picdb.DbObjects import PictureData
 
 FILTER_RATING_BELOW = "frb"
 FILTER_RATING_ABOVE = "fra"
@@ -40,6 +35,7 @@ class NextPictureManager:
     def get_next_picture(self):
         if self.cur_pic_num >= len(self.sample_list):
             self.reload_pictures()
+            self.cur_pic_num = 0
         cur_pic: PictureData = self.sample_list[self.cur_pic_num]
         self.cur_pic_num += 1
         if os.path.exists(cur_pic.absolute_path):
@@ -64,57 +60,51 @@ class NextPictureManager:
         if full_picture_list is None:
             log.debug("No update in db detected. Keeping current picture list.")
             return self.sample_list
+
         if len(full_picture_list) == 0:
             if self.pic_load_bg_proc.is_alive():
-                time.sleep(
-                    10
-                )  # Give the bg process some time to load pictures into the database
+                # Give the bg process some time to load pictures into the database
+                time.sleep(10)
                 self.reload_pictures()
             else:
                 log.fatal("No pictures found to display in database.")
                 exit(1)
-
-        self.sample_list = full_picture_list
-        self.cur_pic_num = 0
-        if not self.config.shuffle:
-            self.sample_list.sort(key=lambda x: x.get_date_time())
-        elif self.config.shuffle_weight == 0:
-            random.shuffle(self.sample_list)
         else:
-            nums_shown = [pic.times_shown for pic in full_picture_list]
-            max_num_shown = max(nums_shown)
-            weights = [
-                (max_num_shown + 1 - x)
-                / (max_num_shown + 1)
-                * self.config.shuffle_weight
-                + 1
-                for x in nums_shown
-            ]
-            log.debug(
-                f"The first 100 weights out of {len(weights)} are {weights[:100]}."
-            )
-            self.sample_list = random.choices(
-                full_picture_list, weights=weights, k=len(full_picture_list)
-            )
-            log.debug(
-                f"The first 100 pictures out of {len(self.sample_list)} are "
-                f"{[x.absolute_path for x in self.sample_list[:100]]}."
-            )
+            self.sample_list = full_picture_list
+            self.cur_pic_num = 0
+            if not self.config.shuffle:
+                self.sample_list.sort(key=lambda x: x.get_date_time())
+            elif self.config.shuffle_weight == 0:
+                random.shuffle(self.sample_list)
+            else:
+                nums_shown = [pic.times_shown for pic in full_picture_list]
+                max_num_shown = max(nums_shown)
+                weights = [
+                    (max_num_shown + 1 - x)
+                    / (max_num_shown + 1)
+                    * self.config.shuffle_weight
+                    + 1
+                    for x in nums_shown
+                ]
+                log.debug(
+                    f"The first 100 weights out of {len(weights)} are {weights[:100]}."
+                )
+                self.sample_list = random.choices(
+                    full_picture_list, weights=weights, k=len(full_picture_list)
+                )
+                log.debug(
+                    f"The first 100 pictures out of {len(self.sample_list)} are "
+                    f"{[x.absolute_path for x in self.sample_list[:100]]}."
+                )
 
     def _load_pictures_from_db(self) -> Optional[List[PictureData]]:
-        session = self.db.get_session()
-        last_db_update = datetime.strptime(
-            session.query(Metadata)
-            .filter(Metadata.key == LAST_DB_UPDATE_KEY_STR)
-            .one()
-            .value,
-            LAST_DB_UPDATE_FMT_STR,
-        )
+        last_db_update = self.db.get_last_update_time()
         log.debug(
             f"Last update in NextPicture manager = {self.last_db_update} and "
             f"last update of db = {last_db_update}"
         )
         if self.last_db_update < last_db_update:
+            session = self.db.get_session()
             q = session.query(PictureData)
             if FILTER_RATING_BELOW in self.filters:
                 q = q.filter(PictureData.rating >= self.filters[FILTER_RATING_BELOW])

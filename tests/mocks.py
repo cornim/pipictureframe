@@ -2,9 +2,8 @@ from datetime import datetime
 from typing import List
 from unittest.mock import Mock, PropertyMock
 
-from pipictureframe.picdb.DbObjects import Metadata
-from pipictureframe.picdb.PictureUpdater import PictureData
 from pipictureframe.picdb.Database import LAST_DB_UPDATE_FMT_STR
+from pipictureframe.picdb.DbObjects import PictureData, Metadata
 
 dt_now = datetime.now()
 

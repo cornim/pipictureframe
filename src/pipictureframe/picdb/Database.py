@@ -7,15 +7,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.orm.exc import UnmappedClassError
 
-from pipictureframe.picdb.DbObjects import PictureData, Metadata
+from pipictureframe.picdb.DbObjects import Metadata, PictureData
 
 log = logging.getLogger(__name__)
 
 
 VERSION_STRING = "version"
-CURRENT_DB_VERSION = 1
+CURRENT_DB_VERSION = 2
 LAST_DB_UPDATE_KEY_STR = "last_db_update"
-LAST_DB_UPDATE_FMT_STR = "%Y-%m-%d %H:%M:%S"
+LAST_DB_UPDATE_FMT_STR = "%Y-%m-%d %H:%M:%S.%f"
 
 
 class Database:
@@ -27,12 +27,12 @@ class Database:
         self._initialize_db_picture_mapping()
         self._initizalize_metadata_table()
         self.alchemy_metadata.create_all()
-        self.create_inital_metadata_objects()
+        self._create_inital_metadata_objects()
         self.version = self._get_db_version()
 
-    def create_inital_metadata_objects(self):
+    def _create_inital_metadata_objects(self):
+        session = self.get_session()
         try:
-            session = self.get_session()
             session.add(Metadata(VERSION_STRING, str(CURRENT_DB_VERSION)))
             session.add(
                 Metadata(
@@ -93,6 +93,36 @@ class Database:
 
     def get_session(self) -> Session:
         return self.sm()
+
+    def set_last_update_time(self, update_time: datetime, session: Session = None):
+        generate_session = False if session else True
+        if generate_session:
+            session = self.get_session()
+
+        update_obj = Metadata(
+            LAST_DB_UPDATE_KEY_STR, datetime.now().strftime(LAST_DB_UPDATE_FMT_STR)
+        )
+        session.merge(update_obj)
+
+        if generate_session:
+            session.commit()
+            session.close()
+
+    def get_last_update_time(self, session: Session = None) -> datetime:
+        generate_session = False if session else True
+        if generate_session:
+            session = self.get_session()
+        last_db_update = datetime.strptime(
+            session.query(Metadata)
+            .filter(Metadata.key == LAST_DB_UPDATE_KEY_STR)
+            .one()
+            .value,
+            LAST_DB_UPDATE_FMT_STR,
+        )
+        if generate_session:
+            session.commit()
+            session.close()
+        return last_db_update
 
     def close(self):
         sqlalchemy.orm.session.close_all_sessions()

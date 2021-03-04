@@ -116,6 +116,7 @@ def setup_parser():
         help="number of character before breaking into new line",
     )
     # TODO reimplement
+    """
     vto.add_argument("--load_geoloc", action="store_true", help="load geolocation code")
     vto.add_argument(
         "--geo_key",
@@ -133,6 +134,7 @@ def setup_parser():
         type=int,
         help="Level of address detail(3=country...18=building): 3,5,8,10,14,16,17,18",
     )
+    """
 
     fo = parser.add_argument_group("filter options")
     fo.add_argument(
@@ -150,6 +152,7 @@ def setup_parser():
     # TODO add filters for date_before and date_after
 
     pfo = parser.add_argument_group("picture file options")
+    pfo.add_argument("-p", "--pic_dir", default="/home/pi/Pictures")
     pfo.add_argument(
         "-c",
         "--check_dir_tm",
@@ -185,14 +188,8 @@ def setup_parser():
         help="Set the logging level",
     )
     mo.add_argument(
-        "--debug_log_file",
-        default=None,
-        help="Set path to a file in which to record all debug log messages.",
-    )
-    mo.add_argument(
         "-o", "--font_file", default="pipictureframe/fonts/NotoSans-Regular.ttf"
     )
-    mo.add_argument("-p", "--pic_dir", default="/home/pi/Pictures")
     mo.add_argument(
         "--db_connection_string",
         default="sqlite:////home/pi/picture_db.db",
@@ -227,6 +224,13 @@ def setup_parser():
     mo.add_argument(
         "-k", "--keyboard", action="store_true", help="Enable keyboard interaction. "
     )
+    mo.add_argument(
+        "--total_runtime",
+        default=0,
+        type=int,
+        help="Total time the picture frame should run in seconds."
+        " O means it should run indefinitely.",
+    )
     # TODO possibly reimplement
     # parse.add_argument("-i", "--no_files_img",
     #                    default="/home/pi/pi3d_demos/PictureFrame2020img.jpg",
@@ -248,7 +252,7 @@ def convert_to_absolute_path(rel_path):
         return os.path.abspath(rel_path)
     else:
         new_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../..", rel_path
+            os.path.dirname(os.path.abspath(__file__)), "../../..", rel_path
         )
         if os.path.isfile(new_path):
             return new_path
@@ -281,10 +285,12 @@ class Config:
         self.show_text_sz = args.show_text_sz
         self.show_text = parse_show_text(args.show_text)
         self.text_width = args.text_width
+        """
         self.load_geoloc = args.load_geoloc
         self.geo_key = args.geo_key
         self.geo_path = args.geo_path
         self.geo_zoom = args.geo_zoom
+        """
 
         self.min_rating = args.min_rating
         self.max_rating = args.max_rating
@@ -295,7 +301,6 @@ class Config:
         self.shuffle_weight = args.shuffle_weight
 
         self.log_level = args.log_level
-        self.debug_log_file = args.debug_log_file
         self.fps = args.fps
         self.font_file = convert_to_absolute_path(args.font_file)
         self.pic_dir = args.pic_dir
@@ -306,6 +311,7 @@ class Config:
         self.display_y = args.display_y
         self.display_w = args.display_w
         self.display_h = args.display_h
+        self.total_runtime = args.total_runtime
         self.keyboard = args.keyboard
 
         self.delta_alpha = 1.0 / (self.fps * self.fade_time)

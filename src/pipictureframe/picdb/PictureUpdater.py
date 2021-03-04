@@ -4,12 +4,8 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from pipictureframe.picdb.Database import (
-    Database,
-    LAST_DB_UPDATE_KEY_STR,
-    LAST_DB_UPDATE_FMT_STR,
-)
-from pipictureframe.picdb.DbObjects import PictureData, Metadata
+from pipictureframe.picdb import get_db
+from pipictureframe.picdb.DbObjects import PictureData
 from pipictureframe.utils.PictureReader import read_pictures_from_disk, PictureFile
 
 log = logging.getLogger(__name__)
@@ -20,7 +16,7 @@ def update_pictures_in_db(pic_dir: str, connections_str: str):
         log.info(f"Starting update of db {connections_str} from directory {pic_dir}")
         pic_file_gen = read_pictures_from_disk(pic_dir)
         # Separate db instance created here since this runs a separate process
-        db = Database(connections_str)
+        db = get_db(connections_str)
 
         session = db.get_session()
         # Update needs to be executed before clean to catch moved pictures
@@ -28,10 +24,7 @@ def update_pictures_in_db(pic_dir: str, connections_str: str):
         db_changed = _clean_db(session) or db_changed
         if db_changed:
             log.debug("Changes to db detected. Updated last_db_update in db.")
-            update_obj = Metadata(
-                LAST_DB_UPDATE_KEY_STR, datetime.now().strftime(LAST_DB_UPDATE_FMT_STR)
-            )
-            session.merge(update_obj)
+            db.set_last_update_time(datetime.now(), session)
             session.commit()
         session.close()
     except Exception as e:

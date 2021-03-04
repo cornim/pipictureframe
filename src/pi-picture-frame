@@ -2,12 +2,12 @@
 
 import os
 
+from pipictureframe import pipictureframe
+
 # Needed to load opengl dlls from current dir in Windows.
 if os.name == "nt":
     os.add_dll_directory(os.getcwd())
     os.add_dll_directory(os.path.dirname(os.path.realpath(__file__)))
-import pipictureframe.pipictureframe
-
 
 if __name__ == '__main__':
-    pipictureframe.pipictureframe.main()
+    pipictureframe.main()
