@@ -10,6 +10,7 @@ The actual OpenGL code is from [pi3d_demos](https://github.com/pi3d/pi3d_demos).
 ## Installation
 
 ```bash
+sudo apt-get install libatlas-base-dev  # Need for numpy
 sudo pip3 install pipictureframe
 ```
 
