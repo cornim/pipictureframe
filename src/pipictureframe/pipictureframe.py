@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-""" Simplified slideshow system using ImageSprite.
+"""Simplified slideshow system using ImageSprite.
     Also has a minimal use of PointText and TextBlock system with reduced codepoints
 and reduced grid_size to give better resolution for large characters.
 
@@ -56,7 +56,9 @@ def load_fg_with_retry(
     return cur_pic
 
 
-def load_next_slide(pi3dfuncs: Pi3dFuncs, npm: NextPictureManager, config) -> PictureData:
+def load_next_slide(
+    pi3dfuncs: Pi3dFuncs, npm: NextPictureManager, config
+) -> PictureData:
     pi3dfuncs.copy_fg_to_bg()
     cur_pic = load_fg_with_retry(pi3dfuncs, npm, config)
     pi3dfuncs.set_textures()
