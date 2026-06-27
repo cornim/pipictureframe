@@ -3,10 +3,7 @@ import os
 import logging
 from pathlib import Path
 
-try:  # Python >= 3.9
-    from importlib.resources import files as _resource_files
-except ImportError:  # pragma: no cover - Python 3.8 fallback
-    _resource_files = None
+from importlib.resources import files as _resource_files
 
 log = logging.getLogger(__name__)
 
@@ -24,11 +21,7 @@ def _package_resource(*parts) -> str:
     directory or where the package is installed (instead of the previous,
     CWD-dependent "../../.." guesswork).
     """
-    if _resource_files is not None:
-        return str(_resource_files("pipictureframe").joinpath(*parts))
-    # Fallback for Python 3.8 where importlib.resources.files is unavailable.
-    pkg_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(pkg_root, *parts)
+    return str(_resource_files("pipictureframe").joinpath(*parts))
 
 
 def str_to_tuple(x):
