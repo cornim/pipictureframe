@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipictureframe"
+version = "0.11.0"
+description = "A program to use a raspberry pi with a monitor as a digital picture frame."
+readme = "README.md"
+license = { text = "GPLv3" }
+authors = [{ name = "Dr. Cornelius Mund" }]
+requires-python = ">=3.9"
+dependencies = [
+    "pi3d>=2.41",
+    "numpy>=1.19.5",
+    "Pillow>=8.1.0",
+    "geopy>=2.1.0",
+    "SQLAlchemy>=1.4,<3",
+    "python-dateutil>=2.8.1",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: POSIX :: Linux",
+]
+
+[project.urls]
+Homepage = "https://github.com/cornim/pipictureframe"
+
+[project.scripts]
+pi-picture-frame = "pipictureframe.pipictureframe:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pipictureframe = ["fonts/*.ttf", "shaders/*.fs", "shaders/*.vs"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]

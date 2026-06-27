@@ -9,6 +9,7 @@ USING exif info to rotate images
 
 import logging
 import multiprocessing as mp
+import os
 import time
 from datetime import datetime, timedelta
 
@@ -104,6 +105,13 @@ def configure_logging(config):
 
 
 def main():
+    # On Windows the OpenGL DLLs must be discoverable from the current working
+    # directory and the package directory. This used to live in the standalone
+    # launcher script; it now runs as part of the console entry point.
+    if os.name == "nt":
+        os.add_dll_directory(os.getcwd())
+        os.add_dll_directory(os.path.dirname(os.path.realpath(__file__)))
+
     parser = setup_parser()
     args = parser.parse_args()
     config = Config(args)
