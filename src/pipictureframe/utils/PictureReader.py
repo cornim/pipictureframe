@@ -19,6 +19,11 @@ EXIF_GPS_INFO_LAT_REF = "GPSLatitudeRef"
 EXIF_GPS_INFO_LON = "GPSLongitude"
 EXIF_GPS_INFO_LON_REF = "GPSLongitudeRef"
 
+# Read files in 64 KiB blocks when hashing so that large images are not loaded
+# into memory all at once. md5 is a streaming hash, so updating it block by
+# block yields the same digest as hashing the whole file content at once.
+HASH_CHUNK_SIZE = 64 * 1024
+
 
 class ExifData:
     def __init__(self, path):
@@ -126,8 +131,11 @@ class PictureFile:
 
     @lazy_property
     def hash(self):
+        file_hash = md5()
         with open(self.path, "rb") as f:
-            return md5(f.read()).hexdigest()
+            for chunk in iter(lambda: f.read(HASH_CHUNK_SIZE), b""):
+                file_hash.update(chunk)
+        return file_hash.hexdigest()
 
     def __str__(self):
         return (
