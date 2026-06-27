@@ -25,12 +25,12 @@ class Database:
         self.alchemy_metadata = sqlalchemy.MetaData(bind=self.engine)
         self.sm = sessionmaker(expire_on_commit=expire_on_commit)
         self._initialize_db_picture_mapping()
-        self._initizalize_metadata_table()
+        self._initialize_metadata_table()
         self.alchemy_metadata.create_all()
-        self._create_inital_metadata_objects()
+        self._create_initial_metadata_objects()
         self.version = self._get_db_version()
 
-    def _create_inital_metadata_objects(self):
+    def _create_initial_metadata_objects(self):
         session = self.get_session()
         try:
             session.add(Metadata(VERSION_STRING, str(CURRENT_DB_VERSION)))
@@ -79,7 +79,7 @@ class Database:
             )
             sqlalchemy.orm.mapper(PictureData, pic_data_map)
 
-    def _initizalize_metadata_table(self):
+    def _initialize_metadata_table(self):
         try:
             sqlalchemy.orm.class_mapper(Metadata)
         except UnmappedClassError:
