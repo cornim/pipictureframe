@@ -10,6 +10,12 @@ except ImportError:  # pragma: no cover - Python 3.8 fallback
 
 log = logging.getLogger(__name__)
 
+# Defaults derived from the current user's home directory so the program is not
+# tied to the Raspberry Pi "pi" account. On a stock Pi (home = /home/pi) these
+# resolve to the historical locations.
+DEFAULT_PIC_DIR = str(Path.home() / "Pictures")
+DEFAULT_DB_CONNECTION_STRING = "sqlite:///" + str(Path.home() / "picture_db.db")
+
 
 def _package_resource(*parts) -> str:
     """Return an absolute path to a file bundled inside the pipictureframe package.
@@ -172,7 +178,7 @@ def setup_parser():
     # TODO add filters for date_before and date_after
 
     pfo = parser.add_argument_group("picture file options")
-    pfo.add_argument("-p", "--pic_dir", default="/home/pi/Pictures")
+    pfo.add_argument("-p", "--pic_dir", default=DEFAULT_PIC_DIR)
     pfo.add_argument(
         "-c",
         "--check_dir_tm",
@@ -212,7 +218,7 @@ def setup_parser():
     )
     mo.add_argument(
         "--db_connection_string",
-        default="sqlite:////home/pi/picture_db.db",
+        default=DEFAULT_DB_CONNECTION_STRING,
         help="SqlAlchemy is used so not only other locations but"
         " also other databases are possible.",
     )
