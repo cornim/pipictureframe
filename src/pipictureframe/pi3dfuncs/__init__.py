@@ -30,7 +30,9 @@ class Pi3dFuncs:
         try:
             locale.setlocale(locale.LC_TIME, config.local)
         except Exception as e:
-            log.warning("error trying to set local to {}".format(config.local), e)
+            log.warning(
+                "error trying to set local to {}".format(config.local), exc_info=e
+            )
 
         self._display = pi3d.Display.create(
             x=config.display_x,
@@ -184,7 +186,7 @@ class Pi3dFuncs:
             #                    mipmap=config.AUTO_RESIZE, free_after_load=True)
             # poss try this if still some artifacts with full resolution
         except Exception as e:
-            log.error(f"Error loading file {pic_path}", e)
+            log.error(f"Error loading file {pic_path}", exc_info=e)
             tex = None
         return tex
 
