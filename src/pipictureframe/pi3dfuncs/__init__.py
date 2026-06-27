@@ -2,6 +2,7 @@ import locale
 import logging
 import math
 import os
+import sys
 
 import numpy as np
 from PIL import Image, ImageFilter
@@ -19,7 +20,7 @@ except ModuleNotFoundError as e:
             "Pygame must be installed manually if running on Windows. "
             'Please run "pip install pygame".'
         )
-        exit(2)
+        sys.exit(2)
     else:
         raise e
 

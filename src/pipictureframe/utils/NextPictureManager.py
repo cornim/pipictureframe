@@ -1,6 +1,7 @@
 import logging
 import os
 import random
+import sys
 import time
 from datetime import datetime
 from typing import List, Optional
@@ -73,7 +74,7 @@ class NextPictureManager:
                 self.reload_pictures()
             else:
                 log.fatal("No pictures found to display in database.")
-                exit(1)
+                sys.exit(1)
         else:
             self.sample_list = full_picture_list
             self.cur_pic_num = 0
