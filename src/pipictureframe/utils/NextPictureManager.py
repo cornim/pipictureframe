@@ -20,9 +20,11 @@ class NextPictureManager:
         self.config = config
         self.pic_load_bg_proc = pic_load_bg_proc
         self.filters = dict()
-        if config.min_rating:
+        # Use "is not None" so a rating threshold of 0 is honoured. A plain
+        # truthiness check silently dropped the filter when the limit was 0.
+        if config.min_rating is not None:
             self.filters[FILTER_RATING_BELOW] = config.min_rating
-        if config.max_rating:
+        if config.max_rating is not None:
             self.filters[FILTER_RATING_ABOVE] = config.max_rating
 
         self.db = db
