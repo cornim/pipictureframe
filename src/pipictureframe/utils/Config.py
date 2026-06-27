@@ -182,8 +182,8 @@ def setup_parser():
         default=0,
         type=float,
         help="Determines the weight with which the number of times a picture has already been shown,"
-        " influces the probablity for it to be picked in the future."
-        " 0 Means no influce, 1 means about 50 percent influence and 100 means complete influence.",
+        " influences the probability for it to be picked in the future."
+        " 0 Means no influence, 1 means about 50 percent influence and 100 means complete influence.",
     )
 
     mo = parser.add_argument_group("misc options")
