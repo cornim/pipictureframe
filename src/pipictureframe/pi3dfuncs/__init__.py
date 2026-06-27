@@ -295,3 +295,9 @@ class Pi3dFuncs:
 
     def draw_slide(self):
         self._slide.draw()
+
+    def cleanup(self):
+        """Release pi3d resources: close the keyboard (if any) and the display."""
+        if hasattr(self, "keyboard"):
+            self.keyboard.close()
+        self._display.destroy()

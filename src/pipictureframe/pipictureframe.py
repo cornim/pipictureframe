@@ -191,11 +191,8 @@ def main():
             elif k != -1:  # Next slide
                 lcv.next_pic_time = lcv.cur_time
 
-    if config.keyboard:
-        pi3dfuncs.keyboard.close()
     pic_loading_proc.join()
-    # TODO move display destroy etc to pi3dfuncs function
-    pi3dfuncs._display.destroy()
+    pi3dfuncs.cleanup()
     db.close()
 
 
