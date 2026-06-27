@@ -50,10 +50,10 @@ class Pi3dFuncs:
     def __init__(self, config):
         # noinspection PyBroadException
         try:
-            locale.setlocale(locale.LC_TIME, config.local)
+            locale.setlocale(locale.LC_TIME, config.locale)
         except Exception as e:
             log.warning(
-                "error trying to set local to {}".format(config.local), exc_info=e
+                "error trying to set locale to {}".format(config.locale), exc_info=e
             )
 
         self._display = pi3d.Display.create(
