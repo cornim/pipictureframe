@@ -1,9 +1,28 @@
 from datetime import datetime
 
+from sqlalchemy import Column, DateTime, Float, Integer, String
+from sqlalchemy.orm import declarative_base
+
 from pipictureframe.utils.PictureReader import PictureFile
 
+Base = declarative_base()
 
-class PictureData:
+
+class PictureData(Base):
+    __tablename__ = "pictures"
+
+    hash_id = Column(String(50), primary_key=True)
+    absolute_path = Column(String(256))
+    mtime = Column(Integer)
+    orig_date_time = Column(DateTime)
+    orientation = Column(Integer)
+    rating = Column(Integer)
+    lat_ref = Column(String(1))
+    lat = Column(Float)
+    long_ref = Column(String(1))
+    long = Column(Float)
+    times_shown = Column(Integer)
+
     def __init__(
         self,
         hash_id: str,
@@ -56,8 +75,11 @@ class PictureData:
         return str(self.__dict__)
 
 
-class Metadata:
-    key = None
+class Metadata(Base):
+    __tablename__ = "metadata"
+
+    key = Column(String(256), primary_key=True)
+    value = Column(String(1024))
 
     def __init__(self, key: str, value: str):
         self.key = key
