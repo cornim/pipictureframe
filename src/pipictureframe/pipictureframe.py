@@ -21,7 +21,6 @@ from pipictureframe.utils.NextPictureManager import NextPictureManager
 
 
 log = logging.getLogger()
-log.setLevel(logging.DEBUG)
 
 
 def start_pic_loading_process(conf: Config):
@@ -63,6 +62,11 @@ class DebugFilter(logging.Filter):
 
 
 def configure_logging(config):
+    # Let the root logger pass everything through; the handler below decides
+    # what is actually emitted based on config.log_level. This is done here
+    # rather than at import time to avoid mutating global logging state as a
+    # side effect of importing this module.
+    log.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
