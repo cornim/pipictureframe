@@ -294,7 +294,11 @@ class Pi3dFuncs:
                     )
                 )
 
-            final_string = " • ".join(string_components)
+        final_string = " • ".join(string_components)
+        # final_string can be empty even when show_text > 0 (e.g. a filename made
+        # up entirely of characters outside codepoints). Guard against it because
+        # locations[:0].min() below would raise on an empty array.
+        if final_string:
             self._textblock.set_text(text_format=final_string, wrap=config.text_width)
 
             last_ch = len(final_string)
