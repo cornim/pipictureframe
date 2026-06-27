@@ -1,8 +1,28 @@
 import argparse
 import os
 import logging
+from pathlib import Path
+
+try:  # Python >= 3.9
+    from importlib.resources import files as _resource_files
+except ImportError:  # pragma: no cover - Python 3.8 fallback
+    _resource_files = None
 
 log = logging.getLogger(__name__)
+
+
+def _package_resource(*parts) -> str:
+    """Return an absolute path to a file bundled inside the pipictureframe package.
+
+    Uses importlib.resources so the lookup works no matter the current working
+    directory or where the package is installed (instead of the previous,
+    CWD-dependent "../../.." guesswork).
+    """
+    if _resource_files is not None:
+        return str(_resource_files("pipictureframe").joinpath(*parts))
+    # Fallback for Python 3.8 where importlib.resources.files is unavailable.
+    pkg_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(pkg_root, *parts)
 
 
 def str_to_tuple(x):
@@ -248,16 +268,26 @@ def setup_parser():
 
 
 def convert_to_absolute_path(rel_path):
+    """Resolve a font/shader path to an absolute file path.
+
+    An existing (user-supplied) file is used as-is. Otherwise the value is
+    treated as a resource bundled in the pipictureframe package (e.g.
+    "pipictureframe/shaders/blend_new.fs") and resolved against the installed
+    package location, regardless of the current working directory.
+    """
     if os.path.isfile(rel_path):
         return os.path.abspath(rel_path)
-    else:
-        new_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../../..", rel_path
-        )
-        if os.path.isfile(new_path):
-            return new_path
-        else:
-            log.error(f"Neither {rel_path} nor {new_path} could be found.")
+
+    parts = Path(rel_path).parts
+    # Strip a leading "pipictureframe/" so the remainder is relative to the
+    # package root that _package_resource already points at.
+    if parts and parts[0] == "pipictureframe":
+        parts = parts[1:]
+    new_path = _package_resource(*parts)
+    if os.path.isfile(new_path):
+        return new_path
+
+    log.error(f"Neither {rel_path} nor {new_path} could be found.")
     return None
 
 
