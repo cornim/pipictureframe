@@ -2,12 +2,11 @@ import logging
 from datetime import datetime
 
 import sqlalchemy
-from sqlalchemy import Column, String, Integer, DateTime, Float, event
+from sqlalchemy import event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.orm.exc import UnmappedClassError
 
-from pipictureframe.picdb.DbObjects import Metadata, PictureData
+from pipictureframe.picdb.DbObjects import Base, Metadata
 
 log = logging.getLogger(__name__)
 
@@ -22,16 +21,14 @@ class Database:
     def __init__(self, connection_string: str, echo=False, expire_on_commit=True):
         self.engine = sqlalchemy.create_engine(connection_string, echo=echo)
         self._configure_sqlite_pragmas()
+        # Keep one connection open for the lifetime of this object so that an
+        # in-memory SQLite database (which only exists for as long as its
+        # connection does) is not discarded between sessions.
         self.connection = self.engine.connect()
-        # registry.map_imperatively replaces the classical (and, in SQLAlchemy
-        # 2.0, removed) sqlalchemy.orm.mapper() API. The session is bound to the
-        # engine explicitly because MetaData(bind=...) no longer exists in 2.0.
-        self.registry = sqlalchemy.orm.registry()
-        self.alchemy_metadata = self.registry.metadata
         self.sm = sessionmaker(bind=self.engine, expire_on_commit=expire_on_commit)
-        self._initialize_db_picture_mapping()
-        self._initialize_metadata_table()
-        self.alchemy_metadata.create_all(self.engine)
+        # The ORM mapping lives on the declarative Base in DbObjects, so the
+        # schema is simply created on this engine.
+        Base.metadata.create_all(self.engine)
         self._create_initial_metadata_objects()
         self.version = self._get_db_version()
 
@@ -88,39 +85,6 @@ class Database:
         log.debug(f"Retrieved db version = {version}")
         return int(version)
 
-    def _initialize_db_picture_mapping(self):
-        try:
-            sqlalchemy.orm.class_mapper(PictureData)
-        except UnmappedClassError:  # map class as it is not yet mapped.
-            pic_data_map = sqlalchemy.Table(
-                "pictures",
-                self.alchemy_metadata,
-                Column("hash_id", String(50), primary_key=True),
-                Column("absolute_path", String(256)),
-                Column("mtime", Integer),
-                Column("orig_date_time", DateTime),
-                Column("orientation", Integer),
-                Column("rating", Integer),
-                Column("lat_ref", String(1)),
-                Column("lat", Float),
-                Column("long_ref", String(1)),
-                Column("long", Float),
-                Column("times_shown", Integer),
-            )
-            self.registry.map_imperatively(PictureData, pic_data_map)
-
-    def _initialize_metadata_table(self):
-        try:
-            sqlalchemy.orm.class_mapper(Metadata)
-        except UnmappedClassError:
-            metadata_map = sqlalchemy.Table(
-                "metadata",
-                self.alchemy_metadata,
-                Column("key", String(256), primary_key=True),
-                Column("value", String(1024)),
-            )
-            self.registry.map_imperatively(Metadata, metadata_map)
-
     def get_session(self) -> Session:
         return self.sm()
 
@@ -158,4 +122,3 @@ class Database:
         sqlalchemy.orm.session.close_all_sessions()
         self.connection.close()
         self.engine.dispose()
-        sqlalchemy.orm.clear_mappers()
