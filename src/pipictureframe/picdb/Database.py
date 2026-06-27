@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 
 import sqlalchemy
-from sqlalchemy import Column, String, Integer, DateTime, Float
+from sqlalchemy import Column, String, Integer, DateTime, Float, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.orm.exc import UnmappedClassError
@@ -21,6 +21,7 @@ LAST_DB_UPDATE_FMT_STR = "%Y-%m-%d %H:%M:%S.%f"
 class Database:
     def __init__(self, connection_string: str, echo=False, expire_on_commit=True):
         self.engine = sqlalchemy.create_engine(connection_string, echo=echo)
+        self._configure_sqlite_pragmas()
         self.connection = self.engine.connect()
         self.alchemy_metadata = sqlalchemy.MetaData(bind=self.engine)
         self.sm = sessionmaker(expire_on_commit=expire_on_commit)
@@ -29,6 +30,31 @@ class Database:
         self.alchemy_metadata.create_all()
         self._create_inital_metadata_objects()
         self.version = self._get_db_version()
+
+    def _configure_sqlite_pragmas(self):
+        """Improve concurrent access for SQLite databases.
+
+        SQLite serializes writers and, by default, raises "database is locked"
+        immediately when a connection cannot acquire the write lock. Because the
+        application accesses the database from both the main process and a
+        background update process, this leads to spurious failures.
+
+        Enabling WAL (write-ahead logging) lets readers and a single writer work
+        concurrently, and a busy timeout makes a connection wait for the lock to
+        be released instead of failing right away. These pragmas are only
+        relevant for SQLite, so other backends are left untouched.
+        """
+        if self.engine.dialect.name != "sqlite":
+            return
+
+        @event.listens_for(self.engine, "connect")
+        def _set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            # WAL is persisted in the database file; busy_timeout is per
+            # connection and therefore has to be set on every new connection.
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=30000")
+            cursor.close()
 
     def _create_inital_metadata_objects(self):
         session = self.get_session()
