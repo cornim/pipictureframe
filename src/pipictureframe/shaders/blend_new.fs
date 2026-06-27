@@ -11,7 +11,7 @@ void main(void) {
   }
   vec4 texb = texture2D(tex1, texcoordoutb);
   if (texcoordoutb[0] < 0.0 || texcoordoutb[0] > 1.0 ||
-      texcoordoutb[1] < 0.0 || texcoordoutf[1] > 1.0) {
+      texcoordoutb[1] < 0.0 || texcoordoutb[1] > 1.0) {
     texb.a = unif[15][2];
   }
 
