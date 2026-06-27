@@ -188,8 +188,14 @@ class Pi3dFuncs:
             tex = None
         return tex
 
-    def load_fg(self, cur_pic: PictureData, config):
-        self._foreground_slide = self.texture_load(cur_pic, config)
+    def load_fg(self, cur_pic: PictureData, config) -> bool:
+        texture = self.texture_load(cur_pic, config)
+        if texture is None:
+            log.warning(
+                f"Could not load texture for {cur_pic.absolute_path}; skipping it."
+            )
+            return False
+        self._foreground_slide = texture
         wh_rat = (self._display.width * self._foreground_slide.iy) / (
             self._display.height * self._foreground_slide.ix
         )
@@ -202,6 +208,7 @@ class Pi3dFuncs:
         self._slide.unif[sz2] = 1.0
         self._slide.unif[os1] = (wh_rat - 1.0) * 0.5
         self._slide.unif[os2] = 0.0
+        return True
 
     def copy_fg_to_bg(self):
         self._background_slide = self._foreground_slide

@@ -23,6 +23,10 @@ from pipictureframe.utils.NextPictureManager import NextPictureManager
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 
+# Upper bound on how many pictures to skip in a row when textures fail to load,
+# guarding against an infinite loop if every candidate is unloadable.
+MAX_LOAD_ATTEMPTS = 100
+
 
 def start_pic_loading_process(conf: Config):
     pic_load_proc = mp.Process(
@@ -33,10 +37,31 @@ def start_pic_loading_process(conf: Config):
     return pic_load_proc
 
 
-def load_next_slide(pi3dfuncs: Pi3dFuncs, cur_pic: PictureData, config):
+def load_fg_with_retry(
+    pi3dfuncs: Pi3dFuncs, npm: NextPictureManager, config
+) -> PictureData:
+    """Load the next picture that can actually be decoded into the foreground.
+
+    Pictures whose textures fail to load are skipped instead of crashing the
+    display loop. Returns the picture that was loaded.
+    """
+    cur_pic = npm.get_next_picture()
+    for _ in range(MAX_LOAD_ATTEMPTS):
+        if pi3dfuncs.load_fg(cur_pic, config):
+            return cur_pic
+        cur_pic = npm.get_next_picture()
+    log.error(
+        f"Could not load any picture after {MAX_LOAD_ATTEMPTS} attempts. "
+        "Continuing with the last attempted picture."
+    )
+    return cur_pic
+
+
+def load_next_slide(pi3dfuncs: Pi3dFuncs, npm: NextPictureManager, config) -> PictureData:
     pi3dfuncs.copy_fg_to_bg()
-    pi3dfuncs.load_fg(cur_pic, config)
+    cur_pic = load_fg_with_retry(pi3dfuncs, npm, config)
     pi3dfuncs.set_textures()
+    return cur_pic
 
 
 class LoopControlVars:
@@ -92,10 +117,9 @@ def main():
     log.debug(f"Initialized loop control variables:\n{lcv}")
 
     npm = NextPictureManager(config, pic_loading_proc, db)
-    cur_pic = npm.get_next_picture()
 
-    # Load first picture into fg
-    pi3dfuncs.load_fg(cur_pic, config)
+    # Load first picture that can be decoded into fg
+    cur_pic = load_fg_with_retry(pi3dfuncs, npm, config)
     # Immediately copy it to bg
     pi3dfuncs.copy_fg_to_bg()
     pi3dfuncs.set_fg_bg_ratio(lcv.fg_alpha)
@@ -125,8 +149,7 @@ def main():
                 log.debug(f"Transition finished.\n{lcv}")
                 # When the transition ends copy the slide shown to bg and load the next slide into fg
                 lcv.transition_running = False
-                cur_pic = npm.get_next_picture()
-                load_next_slide(pi3dfuncs, cur_pic, config)
+                cur_pic = load_next_slide(pi3dfuncs, npm, config)
                 lcv.fg_alpha = 0
             pi3dfuncs.set_fg_bg_ratio(lcv.fg_alpha)
 
