@@ -15,6 +15,8 @@ class TestNextPictureManager:
         patcher = patch("os.path.exists")
         mock_thing = patcher.start()
         mock_thing.side_effect = lambda path: False if "_ne_" in path else True
+        yield
+        patcher.stop()
 
     def test_npm_one_pic_no_shuffle(self):
         config = get_config_mock()
