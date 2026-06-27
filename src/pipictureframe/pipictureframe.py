@@ -10,8 +10,10 @@ USING exif info to rotate images
 import logging
 import multiprocessing as mp
 import os
+import sys
 import time
 from datetime import datetime, timedelta
+from typing import Optional
 
 from pipictureframe.pi3dfuncs import Pi3dFuncs
 from pipictureframe.picdb import get_db
@@ -39,31 +41,30 @@ def start_pic_loading_process(conf: Config):
 
 def load_fg_with_retry(
     pi3dfuncs: Pi3dFuncs, npm: NextPictureManager, config
-) -> PictureData:
+) -> Optional[PictureData]:
     """Load the next picture that can actually be decoded into the foreground.
 
     Pictures whose textures fail to load are skipped instead of crashing the
-    display loop. Returns the picture that was loaded.
+    display loop. Returns the picture that was loaded, or None if no candidate
+    could be decoded within MAX_LOAD_ATTEMPTS.
     """
-    cur_pic = npm.get_next_picture()
     for _ in range(MAX_LOAD_ATTEMPTS):
+        cur_pic = npm.get_next_picture()
         if pi3dfuncs.load_fg(cur_pic, config):
             return cur_pic
-        cur_pic = npm.get_next_picture()
-    log.error(
-        f"Could not load any picture after {MAX_LOAD_ATTEMPTS} attempts. "
-        "Continuing with the last attempted picture."
-    )
-    return cur_pic
+    log.error(f"Could not load any picture after {MAX_LOAD_ATTEMPTS} attempts.")
+    return None
 
 
 def load_next_slide(
-    pi3dfuncs: Pi3dFuncs, npm: NextPictureManager, config
+    pi3dfuncs: Pi3dFuncs, npm: NextPictureManager, config, cur_pic: PictureData
 ) -> PictureData:
     pi3dfuncs.copy_fg_to_bg()
-    cur_pic = load_fg_with_retry(pi3dfuncs, npm, config)
+    new_pic = load_fg_with_retry(pi3dfuncs, npm, config)
     pi3dfuncs.set_textures()
-    return cur_pic
+    # If nothing new could be decoded keep showing the current picture rather
+    # than propagating None (which would crash prepare_text on the next pass).
+    return new_pic if new_pic is not None else cur_pic
 
 
 class LoopControlVars:
@@ -134,6 +135,14 @@ def main():
 
     # Load first picture that can be decoded into fg
     cur_pic = load_fg_with_retry(pi3dfuncs, npm, config)
+    if cur_pic is None:
+        log.fatal(
+            f"Could not decode any picture at startup after {MAX_LOAD_ATTEMPTS} "
+            "attempts. Exiting."
+        )
+        pi3dfuncs.cleanup()
+        db.close()
+        sys.exit(1)
     # Immediately copy it to bg
     pi3dfuncs.copy_fg_to_bg()
     pi3dfuncs.set_fg_bg_ratio(lcv.fg_alpha)
@@ -163,7 +172,7 @@ def main():
                 log.debug(f"Transition finished.\n{lcv}")
                 # When the transition ends copy the slide shown to bg and load the next slide into fg
                 lcv.transition_running = False
-                cur_pic = load_next_slide(pi3dfuncs, npm, config)
+                cur_pic = load_next_slide(pi3dfuncs, npm, config, cur_pic)
                 lcv.fg_alpha = 0
             pi3dfuncs.set_fg_bg_ratio(lcv.fg_alpha)
 
