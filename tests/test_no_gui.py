@@ -32,7 +32,7 @@ def test_basic_execution(mock1, tmp_path: Path):
     pi3d_module_mock = MagicMock()
     sys.modules["pipictureframe.pi3dfuncs"] = pi3d_module_mock
     pi3d_mock = MagicMock()
-    pi3d_module_mock.Pi3dFunc = pi3d_mock
+    pi3d_module_mock.Pi3dFuncs = pi3d_mock
     from pipictureframe.pipictureframe import main
 
     main()
