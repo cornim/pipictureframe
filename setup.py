@@ -12,7 +12,7 @@ setuptools.setup(
     url="https://github.com/cornim/pipictureframe",
     license="GPLv3",
     author="Dr. Cornelius Mund",
-    author_email="cornim@users.noreply.github.com",
+    author_email="",
     description="A program to use a raspberry pi with a monitor as a digital picture frame.",
     long_description=long_description,
     long_description_content_type="text/markdown",
