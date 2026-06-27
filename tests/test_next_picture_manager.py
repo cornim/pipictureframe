@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
 import pytest
@@ -83,3 +83,26 @@ class TestNextPictureManager:
             npm.get_next_picture()
             cur_pic = npm.get_next_picture()
             assert cur_pic.hash_id == pic3.hash_id
+
+    def test_npm_skips_many_missing_files_without_recursion(self):
+        # More entries than the default recursion limit so the previous
+        # recursive implementation would raise RecursionError.
+        config = get_config_mock()
+        proc = Mock()
+        proc.is_alive = Mock(return_value=False)
+        with TempDbManager() as test_db:
+            pics = []
+            for i in range(1500):
+                pic = get_virtual_pic()
+                pic.absolute_path = f"/home/pi/Pictures/_ne_missing_{i:05d}.jpg"
+                pic.orig_date_time = datetime(2020, 1, 1) + timedelta(seconds=i)
+                pics.append(pic)
+            present = get_virtual_pic()
+            present.absolute_path = "/home/pi/Pictures/present.jpg"
+            present.orig_date_time = datetime(2020, 12, 31)
+            pics.append(present)
+            test_db.load_db(pics)
+
+            npm = NextPictureManager(config, proc, test_db.db)
+            cur_pic = npm.get_next_picture()
+            assert cur_pic.absolute_path == present.absolute_path
