@@ -26,6 +26,39 @@ class TestNextPictureManager:
             cur_pic = npm.get_next_picture()
             assert cur_pic.hash_id == pics[0].hash_id
 
+    def test_npm_max_rating_zero_is_applied(self):
+        # A max_rating of 0 must filter out higher rated pictures. The previous
+        # truthiness check treated 0 as "no filter" and returned everything.
+        config = get_config_mock(max_rating=0)
+        proc = Mock()
+        proc.is_alive = Mock(return_value=False)
+        with TempDbManager() as test_db:
+            low = get_virtual_pic()
+            low.rating = 0
+            low.orig_date_time = datetime(2020, 1, 1)
+            high = get_virtual_pic()
+            high.rating = 3
+            high.orig_date_time = datetime(2020, 2, 1)
+            test_db.load_db([low, high])
+            npm = NextPictureManager(config, proc, test_db.db)
+            assert [p.hash_id for p in npm.sample_list] == [low.hash_id]
+
+    def test_npm_min_rating_zero_is_applied(self):
+        # A min_rating of 0 must exclude unrated (-1) pictures.
+        config = get_config_mock(min_rating=0)
+        proc = Mock()
+        proc.is_alive = Mock(return_value=False)
+        with TempDbManager() as test_db:
+            unrated = get_virtual_pic()
+            unrated.rating = -1
+            unrated.orig_date_time = datetime(2020, 1, 1)
+            rated = get_virtual_pic()
+            rated.rating = 0
+            rated.orig_date_time = datetime(2020, 2, 1)
+            test_db.load_db([unrated, rated])
+            npm = NextPictureManager(config, proc, test_db.db)
+            assert [p.hash_id for p in npm.sample_list] == [rated.hash_id]
+
     def test_npm_four_pics_no_shuffle(self):
         config = get_config_mock()
         proc = Mock()

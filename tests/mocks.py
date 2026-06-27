@@ -8,16 +8,16 @@ from pipictureframe.picdb.DbObjects import PictureData, Metadata
 dt_now = datetime.now()
 
 
-def get_config_mock(shuffle=False, shuffle_weight=0):
+def get_config_mock(shuffle=False, shuffle_weight=0, min_rating=None, max_rating=None):
     config = Mock()
     config.shuffle = PropertyMock()
     config.shuffle = shuffle
     config.shuffle_weight = PropertyMock()
     config.shuffle_weight = shuffle_weight
     config.min_rating = PropertyMock()
-    config.min_rating = None
+    config.min_rating = min_rating
     config.max_rating = PropertyMock()
-    config.max_rating = None
+    config.max_rating = max_rating
     return config
 
 
