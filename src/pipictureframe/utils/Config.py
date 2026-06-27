@@ -306,7 +306,7 @@ class Config:
         self.pic_dir = args.pic_dir
         # This is needed because the path to the shader is given without the .fs/.vs extension.
         self.shader = convert_to_absolute_path(args.shader + ".fs")[:-3]
-        self.local = args.locale
+        self.locale = args.locale
         self.display_x = args.display_x
         self.display_y = args.display_y
         self.display_w = args.display_w
