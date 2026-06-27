@@ -22,7 +22,7 @@ setuptools.setup(
         "numpy>=1.19.5",
         "Pillow>=8.1.0",
         "geopy>=2.1.0",
-        "sqlalchemy>=1.3.23",
+        "SQLAlchemy>=1.4",
         "python-dateutil>=2.8.1",
     ],
     python_requires=">=3.6",
