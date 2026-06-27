@@ -3,6 +3,8 @@ import os
 import logging
 from pathlib import Path
 
+from importlib.resources import files as _resource_files
+
 log = logging.getLogger(__name__)
 
 # Defaults derived from the current user's home directory so the program is not
@@ -10,6 +12,16 @@ log = logging.getLogger(__name__)
 # resolve to the historical locations.
 DEFAULT_PIC_DIR = str(Path.home() / "Pictures")
 DEFAULT_DB_CONNECTION_STRING = "sqlite:///" + str(Path.home() / "picture_db.db")
+
+
+def _package_resource(*parts) -> str:
+    """Return an absolute path to a file bundled inside the pipictureframe package.
+
+    Uses importlib.resources so the lookup works no matter the current working
+    directory or where the package is installed (instead of the previous,
+    CWD-dependent "../../.." guesswork).
+    """
+    return str(_resource_files("pipictureframe").joinpath(*parts))
 
 
 def str_to_tuple(x):
@@ -255,16 +267,26 @@ def setup_parser():
 
 
 def convert_to_absolute_path(rel_path):
+    """Resolve a font/shader path to an absolute file path.
+
+    An existing (user-supplied) file is used as-is. Otherwise the value is
+    treated as a resource bundled in the pipictureframe package (e.g.
+    "pipictureframe/shaders/blend_new.fs") and resolved against the installed
+    package location, regardless of the current working directory.
+    """
     if os.path.isfile(rel_path):
         return os.path.abspath(rel_path)
-    else:
-        new_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../../..", rel_path
-        )
-        if os.path.isfile(new_path):
-            return new_path
-        else:
-            log.error(f"Neither {rel_path} nor {new_path} could be found.")
+
+    parts = Path(rel_path).parts
+    # Strip a leading "pipictureframe/" so the remainder is relative to the
+    # package root that _package_resource already points at.
+    if parts and parts[0] == "pipictureframe":
+        parts = parts[1:]
+    new_path = _package_resource(*parts)
+    if os.path.isfile(new_path):
+        return new_path
+
+    log.error(f"Neither {rel_path} nor {new_path} could be found.")
     return None
 
 

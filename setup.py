@@ -25,11 +25,10 @@ setuptools.setup(
         "SQLAlchemy>=1.4",
         "python-dateutil>=2.8.1",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     classifiers=[
         "Development Status :: 4 - Beta",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
