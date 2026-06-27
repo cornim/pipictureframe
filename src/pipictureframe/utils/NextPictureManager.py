@@ -32,6 +32,7 @@ class NextPictureManager:
         self.last_db_update = datetime(1, 1, 1)
 
         self.cur_pic_num = 0
+        self.times_through = 0
         self.sample_list = None
         self.reload_pictures()
 
@@ -40,8 +41,20 @@ class NextPictureManager:
         # blow the Python recursion limit.
         while True:
             if self.cur_pic_num >= len(self.sample_list):
-                self.reload_pictures()
+                self.times_through += 1
+                # Pick up database changes first; a reload also re-orders the
+                # list. If nothing changed, reshuffle every reshuffle_num passes
+                # so a shuffled slideshow does not repeat the same order forever.
+                reloaded = self.reload_pictures()
                 self.cur_pic_num = 0
+                if not reloaded and self.config.shuffle:
+                    reshuffle_num = max(1, self.config.reshuffle_num)
+                    if self.times_through % reshuffle_num == 0:
+                        log.debug(
+                            f"Reshuffling picture list after "
+                            f"{self.times_through} passes."
+                        )
+                        self._order_sample_list()
             cur_pic: PictureData = self.sample_list[self.cur_pic_num]
             self.cur_pic_num += 1
             if os.path.exists(cur_pic.absolute_path):
@@ -63,47 +76,57 @@ class NextPictureManager:
         session.commit()
         session.close()
 
-    def reload_pictures(self):
+    def reload_pictures(self) -> bool:
+        """Reload the picture list from the database if it has changed.
+
+        Returns True when the in-memory list was replaced with a freshly loaded
+        (and re-ordered) list, and False when no database update was detected.
+        """
         full_picture_list = self._load_pictures_from_db()
         if full_picture_list is None:
             log.debug("No update in db detected. Keeping current picture list.")
-            return self.sample_list
+            return False
 
         if len(full_picture_list) == 0:
             if self.pic_load_bg_proc.is_alive():
                 # Give the bg process some time to load pictures into the database
                 time.sleep(10)
-                self.reload_pictures()
+                return self.reload_pictures()
             else:
                 log.fatal("No pictures found to display in database.")
                 sys.exit(1)
         else:
             self.sample_list = full_picture_list
             self.cur_pic_num = 0
-            if not self.config.shuffle:
-                self.sample_list.sort(key=lambda x: x.get_date_time())
-            elif self.config.shuffle_weight == 0:
-                random.shuffle(self.sample_list)
-            else:
-                nums_shown = [pic.times_shown for pic in full_picture_list]
-                max_num_shown = max(nums_shown)
-                weights = [
-                    (max_num_shown + 1 - x)
-                    / (max_num_shown + 1)
-                    * self.config.shuffle_weight
-                    + 1
-                    for x in nums_shown
-                ]
-                log.debug(
-                    f"The first 100 weights out of {len(weights)} are {weights[:100]}."
-                )
-                self.sample_list = random.choices(
-                    full_picture_list, weights=weights, k=len(full_picture_list)
-                )
-                log.debug(
-                    f"The first 100 pictures out of {len(self.sample_list)} are "
-                    f"{[x.absolute_path for x in self.sample_list[:100]]}."
-                )
+            self._order_sample_list()
+            return True
+
+    def _order_sample_list(self):
+        """Sort or (optionally weighted-)shuffle self.sample_list in place."""
+        if not self.config.shuffle:
+            self.sample_list.sort(key=lambda x: x.get_date_time())
+        elif self.config.shuffle_weight == 0:
+            random.shuffle(self.sample_list)
+        else:
+            nums_shown = [pic.times_shown for pic in self.sample_list]
+            max_num_shown = max(nums_shown)
+            weights = [
+                (max_num_shown + 1 - x)
+                / (max_num_shown + 1)
+                * self.config.shuffle_weight
+                + 1
+                for x in nums_shown
+            ]
+            log.debug(
+                f"The first 100 weights out of {len(weights)} are {weights[:100]}."
+            )
+            self.sample_list = random.choices(
+                self.sample_list, weights=weights, k=len(self.sample_list)
+            )
+            log.debug(
+                f"The first 100 pictures out of {len(self.sample_list)} are "
+                f"{[x.absolute_path for x in self.sample_list[:100]]}."
+            )
 
     def _load_pictures_from_db(self) -> Optional[List[PictureData]]:
         last_db_update = self.db.get_last_update_time()
