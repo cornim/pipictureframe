@@ -33,20 +33,25 @@ class NextPictureManager:
         self.reload_pictures()
 
     def get_next_picture(self):
-        if self.cur_pic_num >= len(self.sample_list):
-            self.reload_pictures()
-            self.cur_pic_num = 0
-        cur_pic: PictureData = self.sample_list[self.cur_pic_num]
-        self.cur_pic_num += 1
-        if os.path.exists(cur_pic.absolute_path):
-            self._inc_times_shown(cur_pic)
-            log.debug(
-                f"{cur_pic.absolute_path} chosen to be shown as next picture. "
-                f"Current picture number is {self.cur_pic_num}."
-            )
-            return cur_pic
-        else:
-            return self.get_next_picture()
+        # Loop (rather than recurse) so a long run of missing files cannot
+        # blow the Python recursion limit.
+        while True:
+            if self.cur_pic_num >= len(self.sample_list):
+                self.reload_pictures()
+                self.cur_pic_num = 0
+            cur_pic: PictureData = self.sample_list[self.cur_pic_num]
+            self.cur_pic_num += 1
+            if os.path.exists(cur_pic.absolute_path):
+                self._inc_times_shown(cur_pic)
+                log.debug(
+                    f"{cur_pic.absolute_path} chosen to be shown as next picture. "
+                    f"Current picture number is {self.cur_pic_num}."
+                )
+                return cur_pic
+            else:
+                log.debug(
+                    f"{cur_pic.absolute_path} no longer exists on disk; skipping."
+                )
 
     def _inc_times_shown(self, cur_pic):
         session = self.db.get_session()

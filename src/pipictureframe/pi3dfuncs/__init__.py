@@ -24,13 +24,37 @@ except ModuleNotFoundError as e:
         raise e
 
 
+# Indices into the slide shader's flat uniform array. pi3d stores each vec3
+# shader uniform unif[N] as three consecutive floats at 3*N, 3*N+1 and 3*N+2.
+# The blend/transition shader uses these slots:
+#   unif[14] (42..44): foreground size factors (x, y) and fg/bg blend ratio (z)
+#   unif[15] (45..47): background size factors (x, y) and edge alpha (z)
+#   unif[16] (48..50): foreground offsets (x, y)
+#   unif[17] (51..53): background offsets (x, y)
+#   unif[18] (54..56): blend type (x) and brightness (y)
+FG_WIDTH_FACTOR = 42
+FG_HEIGHT_FACTOR = 43
+FG_BG_BLEND_RATIO = 44
+BG_WIDTH_FACTOR = 45
+BG_HEIGHT_FACTOR = 46
+EDGE_ALPHA = 47
+FG_WIDTH_OFFSET = 48
+FG_HEIGHT_OFFSET = 49
+BG_WIDTH_OFFSET = 51
+BG_HEIGHT_OFFSET = 52
+BLEND_TYPE = 54
+BRIGHTNESS = 55
+
+
 class Pi3dFuncs:
     def __init__(self, config):
         # noinspection PyBroadException
         try:
             locale.setlocale(locale.LC_TIME, config.locale)
         except Exception as e:
-            log.warning("error trying to set locale to {}".format(config.locale), e)
+            log.warning(
+                "error trying to set locale to {}".format(config.locale), exc_info=e
+            )
 
         self._display = pi3d.Display.create(
             x=config.display_x,
@@ -48,9 +72,9 @@ class Pi3dFuncs:
             camera=self._camera, w=self._display.width, h=self._display.height, z=5.0
         )
         self._slide.set_shader(shader)
-        self._slide.unif[47] = config.edge_alpha
-        self._slide.unif[54] = config.blend_type
-        self._slide.unif[55] = 1.0  # brightness used by shader [18][1]
+        self._slide.unif[EDGE_ALPHA] = config.edge_alpha
+        self._slide.unif[BLEND_TYPE] = config.blend_type
+        self._slide.unif[BRIGHTNESS] = 1.0
 
         if config.keyboard:
             self.keyboard = pi3d.Keyboard()
@@ -184,33 +208,50 @@ class Pi3dFuncs:
             #                    mipmap=config.AUTO_RESIZE, free_after_load=True)
             # poss try this if still some artifacts with full resolution
         except Exception as e:
-            log.error(f"Error loading file {pic_path}", e)
+            log.error(f"Error loading file {pic_path}", exc_info=e)
             tex = None
         return tex
 
-    def load_fg(self, cur_pic: PictureData, config):
-        self._foreground_slide = self.texture_load(cur_pic, config)
+    def load_fg(self, cur_pic: PictureData, config) -> bool:
+        texture = self.texture_load(cur_pic, config)
+        if texture is None:
+            log.warning(
+                f"Could not load texture for {cur_pic.absolute_path}; skipping it."
+            )
+            return False
+        self._foreground_slide = texture
         wh_rat = (self._display.width * self._foreground_slide.iy) / (
             self._display.height * self._foreground_slide.ix
         )
         if (wh_rat > 1.0 and config.fit) or (wh_rat <= 1.0 and not config.fit):
-            sz1, sz2, os1, os2 = 42, 43, 48, 49
+            sz1, sz2, os1, os2 = (
+                FG_WIDTH_FACTOR,
+                FG_HEIGHT_FACTOR,
+                FG_WIDTH_OFFSET,
+                FG_HEIGHT_OFFSET,
+            )
         else:
-            sz1, sz2, os1, os2 = 43, 42, 49, 48
+            sz1, sz2, os1, os2 = (
+                FG_HEIGHT_FACTOR,
+                FG_WIDTH_FACTOR,
+                FG_HEIGHT_OFFSET,
+                FG_WIDTH_OFFSET,
+            )
             wh_rat = 1.0 / wh_rat
         self._slide.unif[sz1] = wh_rat
         self._slide.unif[sz2] = 1.0
         self._slide.unif[os1] = (wh_rat - 1.0) * 0.5
         self._slide.unif[os2] = 0.0
+        return True
 
     def copy_fg_to_bg(self):
         self._background_slide = self._foreground_slide
-        self._slide.unif[45:47] = self._slide.unif[
-            42:44
-        ]  # transfer front width and height factors to back
-        self._slide.unif[51:53] = self._slide.unif[
-            48:50
-        ]  # transfer front width and height offsets
+        # transfer foreground width and height size factors to background
+        self._slide.unif[BG_WIDTH_FACTOR] = self._slide.unif[FG_WIDTH_FACTOR]
+        self._slide.unif[BG_HEIGHT_FACTOR] = self._slide.unif[FG_HEIGHT_FACTOR]
+        # transfer foreground width and height offsets to background
+        self._slide.unif[BG_WIDTH_OFFSET] = self._slide.unif[FG_WIDTH_OFFSET]
+        self._slide.unif[BG_HEIGHT_OFFSET] = self._slide.unif[FG_HEIGHT_OFFSET]
 
     # --- Sanitize the specified string by removing any chars not found in codepoints
     @staticmethod
@@ -225,7 +266,7 @@ class Pi3dFuncs:
         """
         Set ratio of foreground to background. 0 = only bg, 1 = only fg.
         """
-        self._slide.unif[44] = self.smooth_alpha(ratio)
+        self._slide.unif[FG_BG_BLEND_RATIO] = self.smooth_alpha(ratio)
 
     def prepare_text(self, cur_pic: PictureData, config):
         string_components = []
@@ -286,3 +327,9 @@ class Pi3dFuncs:
 
     def draw_slide(self):
         self._slide.draw()
+
+    def cleanup(self):
+        """Release pi3d resources: close the keyboard (if any) and the display."""
+        if hasattr(self, "keyboard"):
+            self.keyboard.close()
+        self._display.destroy()
