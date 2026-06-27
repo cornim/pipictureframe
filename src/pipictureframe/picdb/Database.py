@@ -22,11 +22,15 @@ class Database:
     def __init__(self, connection_string: str, echo=False, expire_on_commit=True):
         self.engine = sqlalchemy.create_engine(connection_string, echo=echo)
         self.connection = self.engine.connect()
-        self.alchemy_metadata = sqlalchemy.MetaData(bind=self.engine)
-        self.sm = sessionmaker(expire_on_commit=expire_on_commit)
+        # registry.map_imperatively replaces the classical (and, in SQLAlchemy
+        # 2.0, removed) sqlalchemy.orm.mapper() API. The session is bound to the
+        # engine explicitly because MetaData(bind=...) no longer exists in 2.0.
+        self.registry = sqlalchemy.orm.registry()
+        self.alchemy_metadata = self.registry.metadata
+        self.sm = sessionmaker(bind=self.engine, expire_on_commit=expire_on_commit)
         self._initialize_db_picture_mapping()
         self._initizalize_metadata_table()
-        self.alchemy_metadata.create_all()
+        self.alchemy_metadata.create_all(self.engine)
         self._create_inital_metadata_objects()
         self.version = self._get_db_version()
 
@@ -77,7 +81,7 @@ class Database:
                 Column("long", Float),
                 Column("times_shown", Integer),
             )
-            sqlalchemy.orm.mapper(PictureData, pic_data_map)
+            self.registry.map_imperatively(PictureData, pic_data_map)
 
     def _initizalize_metadata_table(self):
         try:
@@ -89,7 +93,7 @@ class Database:
                 Column("key", String(256), primary_key=True),
                 Column("value", String(1024)),
             )
-            sqlalchemy.orm.mapper(Metadata, metadata_map)
+            self.registry.map_imperatively(Metadata, metadata_map)
 
     def get_session(self) -> Session:
         return self.sm()
