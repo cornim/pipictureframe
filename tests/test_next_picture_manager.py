@@ -141,3 +141,51 @@ class TestNextPictureManager:
             npm = NextPictureManager(config, proc, test_db.db)
             cur_pic = npm.get_next_picture()
             assert cur_pic.absolute_path == present.absolute_path
+
+    def _load_stable_db(self, test_db, n):
+        pics = [get_virtual_pic() for _ in range(n)]
+        test_db.load_db(pics)
+        # Fix the db update time in the past so reload_pictures reports "no
+        # change" once the list has been loaded the first time.
+        test_db.set_db_update_time(datetime(2000, 1, 1))
+        return pics
+
+    def test_reshuffles_every_pass_when_reshuffle_num_is_1(self):
+        config = get_config_mock(shuffle=True, reshuffle_num=1)
+        proc = Mock()
+        proc.is_alive = Mock(return_value=False)
+        with TempDbManager() as test_db:
+            pics = self._load_stable_db(test_db, 3)
+            with patch(
+                "pipictureframe.utils.NextPictureManager.random.shuffle"
+            ) as shuffle_mock:
+                npm = NextPictureManager(config, proc, test_db.db)
+                # Initial ordering shuffles once.
+                assert shuffle_mock.call_count == 1
+                for _ in range(len(pics)):
+                    npm.get_next_picture()
+                # Crossing the pass boundary reshuffles again.
+                npm.get_next_picture()
+                assert shuffle_mock.call_count == 2
+
+    def test_reshuffles_every_second_pass_when_reshuffle_num_is_2(self):
+        config = get_config_mock(shuffle=True, reshuffle_num=2)
+        proc = Mock()
+        proc.is_alive = Mock(return_value=False)
+        with TempDbManager() as test_db:
+            pics = self._load_stable_db(test_db, 3)
+            with patch(
+                "pipictureframe.utils.NextPictureManager.random.shuffle"
+            ) as shuffle_mock:
+                npm = NextPictureManager(config, proc, test_db.db)
+                assert shuffle_mock.call_count == 1
+                # First full pass + boundary: 1 % 2 != 0, no reshuffle.
+                for _ in range(len(pics)):
+                    npm.get_next_picture()
+                npm.get_next_picture()
+                assert shuffle_mock.call_count == 1
+                # Second full pass + boundary: 2 % 2 == 0, reshuffle.
+                for _ in range(len(pics) - 1):
+                    npm.get_next_picture()
+                npm.get_next_picture()
+                assert shuffle_mock.call_count == 2
