@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pipictureframe"
-version = "0.11.0"
+version = "0.12.0"
 description = "A program to use a raspberry pi with a monitor as a digital picture frame."
 readme = "README.md"
 license = { text = "GPLv3" }
